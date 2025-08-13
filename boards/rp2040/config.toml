@@ -1,0 +1,2 @@
+link_args = ["--nmagic", "-Tlink.x", "-Tdefmt.x"]
+link_search_path = ["."]

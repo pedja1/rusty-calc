@@ -1,0 +1,19 @@
+[package]
+name = "slint-generated"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+slint = { version = "1.12.1", default-features = false, features = [
+    "compat-1-2",
+    "unsafe-single-threaded",
+    "libm",
+    "renderer-software",
+] }
+i-slint-core-macros = { version = "1.12.1" }
+
+[build-dependencies]
+slint-build = { version = "1.12.1" }
+
+# TODO workspace

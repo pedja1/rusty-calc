@@ -1,3 +1,4 @@
 link_args = ["--nmagic", "-Tlink.x", "-Tdefmt.x"]
-rustflags = ["-C", "target-cpu=cortex-m33"]
+#rustflags = ["-C", "target-cpu=cortex-m33"]
 link_search_path = ["."]
+cfgs = ["context=\"mcu\"", "context=\"rp2350\"", "context=\"rp\"", "context=\"pico2\"", "context=\"pico2w\""]

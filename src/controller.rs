@@ -1,4 +1,3 @@
-use defmt::debug;
 use embassy_sync::channel::Channel;
 use slint::ComponentHandle;
 use slint_generated::{Globals, MainWindow};
@@ -46,7 +45,6 @@ where
         self.set_action_event_handlers();
 
         loop {
-            debug!("process action loop");
             let action = ACTION.receive().await;
 
             match self.process_action(action).await {

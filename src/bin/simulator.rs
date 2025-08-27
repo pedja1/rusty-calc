@@ -13,7 +13,6 @@ use log::*;
 use rusty_calc::{
     controller::{self, Action, Controller},
     simulator::hardware::HardwareSim,
-    slint_backend::{StmBackend, TargetPixelType, DISPLAY_HEIGHT, DISPLAY_WIDTH},
 };
 use object_pool::{Pool, Reusable};
 use sdl2::{
@@ -28,6 +27,7 @@ use slint::{
 };
 use slint_generated::MainWindow;
 use static_cell::StaticCell;
+use rusty_calc::simulator::slint_backend::{StmBackend, TargetPixelType, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
 static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 static POOL: StaticCell<Pool<Vec<TargetPixelType>>> = StaticCell::new();

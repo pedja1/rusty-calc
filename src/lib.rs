@@ -3,7 +3,6 @@
 extern crate alloc;
 
 pub mod controller;
-pub mod slint_backend;
 
 //pub mod log;
 

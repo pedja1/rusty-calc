@@ -21,14 +21,11 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use rusty_calc::{
-    controller::{Controller},
-    picocalc::{hardware::HardwareMcu},
-    slint_backend::{StmBackend, DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    controller::Controller,
+    picocalc::hardware::HardwareMcu,
 };
 use slint::{
-    platform::{
-        software_renderer::{MinimalSoftwareWindow, RepaintBufferType, Rgb565Pixel},
-    },
+    platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType, Rgb565Pixel},
     ComponentHandle,
 };
 use slint_generated::MainWindow;
@@ -44,6 +41,7 @@ use mipidsi::Display;
 use mipidsi::interface::SpiInterface;
 use mipidsi::models::ST7796;
 use rusty_calc::picocalc::spi::exclusive_device::ExclusiveDevice;
+use rusty_calc::simulator::slint_backend::{StmBackend, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
 //type PicoDisplay = ST7365P<ExclusiveDevice<spi::Spi<'static, SPI1, Async>, Output<'static>, Delay>, Output<'static>, Output<'static>, Delay>;
 type PicoDisplay = Display<SpiInterface<'static, ExclusiveDevice<spi::Spi<'static, SPI1, Async>, Output<'static>, Delay>, Output<'static>>, ST7796, Output<'static>>;

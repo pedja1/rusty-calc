@@ -10,12 +10,12 @@ use embassy_time::Instant;
 //use embassy_executor::Spawner;
 use slint::{ComponentHandle};
 use slint_generated::MainWindow;
-use rusty_calc::picocalc::pico_test;
+use rusty_calc::picocalc::pico_backend;
 
 #[entry]
 fn main() -> !{
     // Initialize the embassy-based display and platform
-    pico_test::init();
+    pico_backend::init();
 
     //info!("Starting embassy-based Slint application");
 

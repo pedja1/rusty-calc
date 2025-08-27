@@ -1,10 +1,11 @@
 import { Globals, Button, Theme, Toggle } from "common.slint";
+import { ProgressIndicator } from "std-widgets.slint";
 
 export { Globals }
 
 export component MainWindow inherits Window {
-    width: 800px;
-    height: 480px;
+    width: 320px;
+    height: 320px;
 
     HorizontalLayout {
         alignment: center;
@@ -27,10 +28,16 @@ export component MainWindow inherits Window {
                 ]
             }
 
+                ProgressIndicator {
+                    width: 100px;
+                    height: 20px;
+                    progress: Globals.progress;
+                }
+
             HorizontalLayout {
                 Text {
-                    width: 300px;
-                    text: "Hardware Green Led";
+                    width: 320px;
+                    text: "Test 123";
                     font-size: Theme.font-size-standard;
                 }
 
@@ -44,9 +51,9 @@ export component MainWindow inherits Window {
 
             HorizontalLayout {
                 Text {
-                    width: 300px;
+                    width: 320px;
                     vertical-alignment: center;
-                    text: "Hardware User Button";
+                    text: "Pico Calc";
                     font-size: Theme.font-size-standard;
                 }
 

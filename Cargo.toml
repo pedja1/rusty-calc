@@ -7,58 +7,75 @@ edition = "2024"
 [dependencies]
 log = "0.4"
 slint = { version = "1.12.1", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "renderer-software", "libm"] }
+#slint = { path = "../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "renderer-software", "libm"] }
 slint-generated = { path = "./slint_generated" }
 
 defmt = { version = "1.0", optional = true, features = ["alloc"] }
 defmt-rtt = { version = "1.0", optional = true }
 panic-probe = { version = "1.0", optional = true, features = ["print-defmt"] }
-cortex-m = { version = "0.7.7", optional = true }
-cortex-m-rt = { version = "0.7.3", optional = true }
+cortex-m = { version = "0.7.7", optional = true, features = ["inline-asm"] }
+cortex-m-rt = { version = "0.7.5", optional = true }
 embassy-executor = { version = "0.7.0", features = ["executor-thread"] }
-embassy-time = { version = "0.4.0" }
-embassy-sync = { version = "0.7.0" }
-tinybmp = { version = "0.6" }
+embassy-time = { version = "0.4.0", optional = true }
+embassy-time-driver = { version = "0.2.0", optional = true }
+embassy-time-queue-utils = { version = "0.1.0", optional = true }
+embassy-sync = { version = "0.7.0", optional = true }
+embassy-futures = { version = "0.1.0", optional = true }
+#tinybmp = { version = "0.6" }
 static_cell = { version = "2" }
 embedded-alloc = { version = "0.6", optional = true }
-embedded-hal-bus = { version = "0.3.0", features = ["async"], optional = true }
+#heapless = { version = "0.8", default-features = false, features = ["defmt-03"] }
+embedded-hal-bus = { version = "0.3.0", optional = true, features = ["async"] }
 embedded-hal = { version = "1.0.0", optional = true }
 embedded-hal-async = { version = "1.0.0", optional = true }
 
-embassy-rp = { version = "0.4.0", features = [
-    "critical-section-impl",
-    "unstable-pac",
-    "time-driver",
-    "binary-info",
-], optional = true }
+#embassy-rp = { version = "0.4.0", features = ["critical-section-impl", "unstable-pac", "time-driver", "binary-info", "defmt", ], optional = true }
 
 env_logger = { version = "0.11.8", optional = true }
 sdl2 = { version = "0.38.0", optional = true }
 object-pool = { version = "0.6.0", optional = true }
 
-st7365p-lcd = { git = "https://github.com/pedja1/ST7365P-lcd-rs.git", branch = "async", optional = true}
+embedded-graphics = { version = "0.8.1", optional = true }
 
+fugit = { version = "0.3.7", optional = true}
+rp-pico = { version = "0.9.0", optional = true }
+#rp235x-hal = { version = "0.3.0", default-features = false, optional = true }
+mipidsi = { version = "0.9.0", optional = true }
+embedded-hal-nb = { version = "1.0.0", optional = true}
+embedded-dma = { version = "0.2.0", optional = true}
+
+critical-section = { version = "1.2.0", optional = true}
 
 [features]
-default = ["simulator"]
+default = ["pico"]
 pico = [
     "defmt",
     "defmt-rtt",
     "panic-probe",
     "cortex-m",
     "cortex-m-rt",
-    "st7365p-lcd",
     "embassy-sync/defmt",
+    "embassy-time-driver",
+    "embassy-time-queue-utils",
     "embassy-time/defmt",
     "embassy-time/defmt-timestamp-uptime",
     "embassy-executor/arch-cortex-m",
     "embassy-executor/executor-interrupt",
     "embassy-executor/defmt",
+    "embassy-futures",
     "embedded-alloc",
     "embedded-hal",
     "embedded-hal-async",
     "embedded-hal-bus",
-    "embassy-rp",
-    "embassy-rp/rp2040"
+    "embedded-graphics",
+    #"embassy-rp",
+    #"embassy-rp/rp2040",
+    "fugit",
+    "rp-pico",
+    "mipidsi",
+    "embedded-hal-nb",
+    "embedded-dma",
+    "critical-section",
 ]
 
 picow = [
@@ -67,7 +84,6 @@ picow = [
     "panic-probe",
     "cortex-m",
     "cortex-m-rt",
-    "st7365p-lcd",
     "embassy-sync/defmt",
     "embassy-time/defmt",
     "embassy-time/defmt-timestamp-uptime",
@@ -76,10 +92,12 @@ picow = [
     "embassy-executor/defmt",
     "embedded-alloc",
     "embedded-hal",
-    "embedded-hal-async",
+    #"embedded-hal-async",
     "embedded-hal-bus",
-    "embassy-rp",
-    "embassy-rp/rp2040"
+    "embedded-graphics",
+    #"embassy-rp",
+    #"embassy-rp/rp2040",
+    #"rtt-target",
 ]
 
 pico2 = [
@@ -88,7 +106,6 @@ pico2 = [
     "panic-probe",
     "cortex-m",
     "cortex-m-rt",
-    "st7365p-lcd",
     "embassy-sync/defmt",
     "embassy-time/defmt",
     "embassy-time/defmt-timestamp-uptime",
@@ -97,10 +114,12 @@ pico2 = [
     "embassy-executor/defmt",
     "embedded-alloc",
     "embedded-hal",
-    "embedded-hal-async",
+    #"embedded-hal-async",
     "embedded-hal-bus",
-    "embassy-rp",
-    "embassy-rp/rp235xb"
+    "embedded-graphics",
+    #"embassy-rp",
+    #"embassy-rp/rp235xb",
+    #"rtt-target",
 ]
 
 pico2w = [
@@ -109,7 +128,6 @@ pico2w = [
     "panic-probe",
     "cortex-m",
     "cortex-m-rt",
-    "st7365p-lcd",
     "embassy-sync/defmt",
     "embassy-time/defmt",
     "embassy-time/defmt-timestamp-uptime",
@@ -118,10 +136,12 @@ pico2w = [
     "embassy-executor/defmt",
     "embedded-alloc",
     "embedded-hal",
-    "embedded-hal-async",
+    #"embedded-hal-async",
     "embedded-hal-bus",
-    "embassy-rp",
-    "embassy-rp/rp235xb"
+    "embedded-graphics",
+    #"embassy-rp",
+    #"embassy-rp/rp235xb",
+    #"rtt-target",
 ]
 
 simulator = [
@@ -145,4 +165,3 @@ required-features = ["simulator"]
 
 [[bin]]
 name = "ui_picocalc"
-required-features = ["pico"]

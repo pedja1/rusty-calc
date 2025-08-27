@@ -4,8 +4,17 @@ rustflags = [
     "context=\"simulator\"",
 ]
 
+[target.thumbv6m-none-eabi]
+runner = "probe-rs run --chip rp2040"
+linker = "flip-link"
+
+[target.thumbv8m.main-none-eabihf]
+runner = "probe-rs run --chip rp2350"
+linker = "flip-link"
+rustflags = ["-C", "target-cpu=cortex-m33"]
+
 [features]
 
 [env]
-DEFMT_LOG = "info"
+DEFMT_LOG = "trace"
 RUST_LOG = "info"

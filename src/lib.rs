@@ -5,8 +5,10 @@ extern crate alloc;
 pub mod controller;
 pub mod slint_backend;
 
+//pub mod log;
+
 #[cfg(context = "mcu")]
-pub mod mcu;
+pub mod picocalc;
 
 #[cfg(context = "mcu")]
 pub use defmt::{debug, error, info, trace, warn};

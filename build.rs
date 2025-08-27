@@ -41,10 +41,10 @@ fn main() -> std::io::Result<()> {
                 println!("cargo::rustc-cfg={option}");
             }
         }
-        println!("cargo:rerun-if-changed={}", board_config_path.display());
     }
 
-
+    let boards_dir: std::path::PathBuf = [env!("CARGO_MANIFEST_DIR"), "boards", "rp2040", "config.toml"].iter().collect();
+    println!("cargo:rerun-if-changed={}", boards_dir.display());
 
     Ok(())
 }

@@ -5,15 +5,12 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-slint = { version = "1.12.1", default-features = false, features = [
-    "compat-1-2",
-    "unsafe-single-threaded",
-    "libm",
-    "renderer-software",
-] }
+slint = { version = "1.12.1", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software", ] }
+#slint = { path = "../../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "unsafe-single-threaded", "libm", "renderer-software", ] }
 i-slint-core-macros = { version = "1.12.1" }
 
 [build-dependencies]
 slint-build = { version = "1.12.1" }
+#slint-build = { path = "../../slint/api/rs/build" }
 
 # TODO workspace

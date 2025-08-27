@@ -8,8 +8,8 @@ use slint::{
     PlatformError,
 };
 
-pub const DISPLAY_WIDTH: usize = 300;
-pub const DISPLAY_HEIGHT: usize = 300;
+pub const DISPLAY_WIDTH: usize = 320;
+pub const DISPLAY_HEIGHT: usize = 320;
 pub type TargetPixelType = software_renderer::Rgb565Pixel;
 
 pub struct StmBackend {

@@ -2877,18 +2877,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mipidsi"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ba34dcbf61182ffa6992b5a4d9b566d5a99df127fd93f6d314213347329e92f"
-dependencies = [
- "embedded-graphics-core",
- "embedded-hal 1.0.0",
- "heapless",
- "nb 1.1.0",
-]
-
-[[package]]
 name = "muda"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4153,7 +4141,6 @@ dependencies = [
  "env_logger",
  "fugit",
  "log",
- "mipidsi",
  "object-pool",
  "panic-probe",
  "rp-pico",

@@ -8,6 +8,7 @@ use alloc::rc::Rc;
 use alloc::vec;
 use core::cell::{Cell, RefCell};
 use core::convert::Infallible;
+use cortex_m::delay::Delay;
 use cortex_m::singleton;
 use critical_section::CriticalSection;
 use defmt::debug;
@@ -20,7 +21,7 @@ use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::DrawTarget;
 use embedded_hal::digital::{InputPin, OutputPin};
 use embedded_hal::spi::{ErrorType, Operation, SpiBus, SpiDevice};
-use embedded_hal_bus::spi::ExclusiveDevice;
+use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
 use fugit::{Hertz, Instant, RateExtU32};
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
 use hal::gpio::{self, Interrupt as GpioInterrupt};
@@ -30,6 +31,7 @@ use {defmt_rtt as _, panic_probe as _};
 use renderer::Rgb565Pixel;
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::{software_renderer as renderer, PointerEventButton, WindowEvent};
+use crate::picocalc::display::st7365p::ST7365P;
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -48,7 +50,7 @@ const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 320);
 /// The Pixel type of the backing store
 pub type TargetPixel = Rgb565Pixel;
 
-type Display<DI, RST> = mipidsi::Display<DI, mipidsi::models::ST7796, RST>;
+type PicoDisplay<SPI, DC, RST> = ST7365P<SPI, DC, RST, Timer>;
 
 pub fn init() {
     let mut pac = pac::Peripherals::take().unwrap();
@@ -95,21 +97,22 @@ pub fn init() {
         unsafe { (core::ptr::read(&dc as *const _), core::ptr::read(&cs as *const _)) };
     let stolen_spi = unsafe { core::ptr::read(&spi as *const _) };
 
-    //let spi = singleton!(:SpiRefCell = SpiRefCell::new((spi, 0.Hz()))).unwrap();
-    let mipidsi_buffer = singleton!(:[u8; 512] = [0; 512]).unwrap();
-
     let display_spi = ExclusiveDevice::new_no_delay(spi, cs).unwrap();
-    let di = mipidsi::interface::SpiInterface::new(display_spi, dc, mipidsi_buffer);
-    let mut display = mipidsi::Builder::new(mipidsi::models::ST7796, di)
-        .reset_pin(rst)
-        .display_size(DISPLAY_SIZE.height as _, DISPLAY_SIZE.width as _)
-        .orientation(mipidsi::options::Orientation::new().flip_horizontal().rotate(mipidsi::options::Rotation::Deg0))
-        .invert_colors(mipidsi::options::ColorInversion::Inverted)
-        .init(&mut timer)
-        .unwrap();
 
+    let mut display = ST7365P::new(
+        display_spi,
+        dc,
+        Some(rst),
+        false,
+        true,
+        DISPLAY_SIZE.height as _, DISPLAY_SIZE.width as _,
+        timer,
+    );
+    display.init().unwrap();
+    display.set_custom_orientation(0x40).unwrap();
+    display.set_on().unwrap();
 
-    display.clear(Rgb565::new(0, 0, 0)).unwrap();
+    //display.clear(Rgb565::new(0, 0, 0)).unwrap();
 
     let mut alarm0 = timer.alarm_0().unwrap();
     alarm0.enable_interrupt();
@@ -159,15 +162,15 @@ struct PicoBackend<DrawBuffer> {
 }
 
 impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
+    SPI: SpiDevice,
     RST: OutputPin<Error = Infallible>,
     TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
     CH: SingleChannel,
-    DC_: OutputPin<Error = Infallible>,
+    DC: OutputPin<Error = Infallible>,
     CS_: OutputPin<Error = Infallible>,
 > slint::platform::Platform
 for PicoBackend<
-    DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>,
+    DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>,
 >
 {
     fn create_window_adapter(
@@ -261,14 +264,14 @@ struct DrawBuffer<Display, PioTransfer, Stolen> {
 }
 
 impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
+    SPI: SpiDevice,
     RST: OutputPin<Error = Infallible>,
     TO: WriteTarget<TransmittedWord = u8>,
     CH: SingleChannel,
-    DC_: OutputPin<Error = Infallible>,
+    DC: OutputPin<Error = Infallible>,
     CS_: OutputPin<Error = Infallible>,
 > renderer::LineBufferProvider
-for &mut DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
+for &mut DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>
 {
     type TargetPixel = TargetPixel;
 
@@ -321,13 +324,13 @@ for &mut DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
 }
 
 impl<
-    DI: mipidsi::interface::Interface<Word = u8>,
+    SPI: SpiDevice,
     RST: OutputPin<Error = Infallible>,
     TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
     CH: SingleChannel,
-    DC_: OutputPin<Error = Infallible>,
+    DC: OutputPin<Error = Infallible>,
     CS_: OutputPin<Error = Infallible>,
-> DrawBuffer<Display<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
+> DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>
 {
     fn flush_frame(&mut self) {
         let (ch, b, mut spi) = self.pio.take().unwrap().wait();

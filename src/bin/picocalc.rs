@@ -8,8 +8,8 @@ use defmt::debug;
 use embassy_time::Instant;
 //use defmt::{debug, info};
 //use embassy_executor::Spawner;
-use slint::{ComponentHandle};
-use slint_generated::MainWindow;
+use slint::{run_event_loop_until_quit, ComponentHandle};
+use slint_generated::SplashWindow;
 use rusty_calc::picocalc::pico_backend;
 
 #[entry]
@@ -22,8 +22,9 @@ fn main() -> !{
     debug!("Ticks: {}", Instant::now().as_millis());
 
     // Create the main window
-    let main_window = MainWindow::new().unwrap();
-    main_window.run().expect("unable to show main window");
+    let main_window = SplashWindow::new().unwrap();
+    main_window.show().expect("unable to show main window");
+    run_event_loop_until_quit().expect("event loop failed");
 
     // TASK: run the gui render loop
     //spawner.spawn(update_progress(main_window)).unwrap();

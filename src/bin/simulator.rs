@@ -26,6 +26,7 @@ use slint::{
     ComponentHandle,
 };
 use slint_generated::MainWindow;
+use slint_generated::SplashWindow;
 use static_cell::StaticCell;
 use rusty_calc::simulator::slint_backend::{StmBackend, TargetPixelType, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
@@ -191,7 +192,8 @@ async fn main_task(
     // give the render loop time to come up (otherwise it will draw a blank screen)
     Timer::after(Duration::from_millis(200)).await;
     let main_window = MainWindow::new().unwrap();
-    main_window.show().expect("unable to show main window");
+    let splash_window = SplashWindow::new().unwrap();
+    splash_window.show().expect("unable to show main window");
 
     info!("press LEFT SHIFT to simulate a hardware button press");
 

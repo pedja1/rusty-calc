@@ -8,8 +8,9 @@ use slint::{
     PlatformError,
 };
 
-pub const DISPLAY_WIDTH: usize = 320;
-pub const DISPLAY_HEIGHT: usize = 320;
+// on the simulator, this should match mcu resolution multiplied by SLINT_SCALE_FACTOR
+pub const DISPLAY_WIDTH: usize = 640;
+pub const DISPLAY_HEIGHT: usize = 640;
 pub type TargetPixelType = software_renderer::Rgb565Pixel;
 
 pub struct StmBackend {

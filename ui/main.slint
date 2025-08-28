@@ -36,7 +36,7 @@ export component MainWindow inherits Window {
 
             HorizontalLayout {
                 Text {
-                    width: 320px;
+                    width: 120px;
                     text: "Test 123";
                     font-size: Theme.font-size-standard;
                 }
@@ -51,7 +51,7 @@ export component MainWindow inherits Window {
 
             HorizontalLayout {
                 Text {
-                    width: 320px;
+                    width: 120px;
                     vertical-alignment: center;
                     text: "Pico Calc";
                     font-size: Theme.font-size-standard;
@@ -63,6 +63,52 @@ export component MainWindow inherits Window {
                     background: Globals.hardware-user-btn-pressed ? blue : lightgray;
                     border-radius: 100px;
                 }
+            }
+        }
+    }
+}
+
+export component SplashWindow inherits Window {
+    width: 320px;
+    height: 320px;
+    background: #ffffff;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 20px;
+
+
+        Text {
+            text: "Rusty Calc";
+            font-size: Theme.font-size-standard;
+            horizontal-alignment: center;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+            Image {
+                source: @image-url("images/clockworkpi.png");
+                width: 40px;
+                height: 40px;
+            }
+
+            Image {
+                source: @image-url("images/raspberry_pi.svg");
+                width: 40px;
+                height: 40px;
+            }
+
+            Image {
+                source: @image-url("images/rust.svg");
+                width: 40px;
+                height: 40px;
+            }
+
+            Image {
+                source: @image-url("images/slint.svg");
+                width: 40px;
+                height: 40px;
             }
         }
     }

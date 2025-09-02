@@ -8,6 +8,7 @@ use alloc::rc::Rc;
 use alloc::vec;
 use core::cell::{Cell, RefCell};
 use core::convert::Infallible;
+use core::ops::DerefMut;
 use cortex_m::delay::Delay;
 use cortex_m::singleton;
 use critical_section::CriticalSection;
@@ -19,7 +20,9 @@ use embassy_time_queue_utils::Queue;
 use embedded_alloc::LlffHeap as Heap;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::DrawTarget;
+use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::i2c::I2c;
 use embedded_hal::spi::{ErrorType, Operation, SpiBus, SpiDevice};
 use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
 use fugit::{Hertz, Instant, RateExtU32};
@@ -29,9 +32,14 @@ use hal::timer::{Alarm, Alarm0};
 use pac::interrupt;
 use {defmt_rtt as _, panic_probe as _};
 use renderer::Rgb565Pixel;
-use rp_pico::hal::{self, pac, prelude::*, Timer};
-use slint::platform::{software_renderer as renderer, PointerEventButton, WindowEvent};
+use rp_pico::hal::{self, pac, prelude::*, Timer, I2C};
+use rp_pico::hal::gpio::AnyPin;
+use rp_pico::hal::gpio::bank0::{Gpio6, Gpio7};
+use rp_pico::hal::i2c::Controller;
+use rp_pico::pac::I2C1;
+use slint::platform::{software_renderer as renderer, Key, PointerEventButton, WindowEvent};
 use crate::picocalc::display::st7365p::ST7365P;
+use crate::picocalc::southbridge::southbridge::{KeyboardState, SouthBridge};
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -51,6 +59,7 @@ const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 320);
 pub type TargetPixel = Rgb565Pixel;
 
 type PicoDisplay<SPI, DC, RST> = ST7365P<SPI, DC, RST, Timer>;
+
 
 pub fn init() {
     let mut pac = pac::Peripherals::take().unwrap();
@@ -112,7 +121,20 @@ pub fn init() {
     display.set_custom_orientation(0x40).unwrap();
     display.set_on().unwrap();
 
-    //display.clear(Rgb565::new(0, 0, 0)).unwrap();
+    let sda_pin = pins.gpio6.reconfigure();
+    let scl_pin = pins.gpio7.reconfigure();
+
+    let i2c = I2C::i2c1(
+        pac.I2C1,
+        sda_pin,
+        scl_pin,
+        10.kHz(),
+        &mut pac.RESETS,
+        &clocks.system_clock,
+    );
+
+    let mut sb = SouthBridge::new(i2c);
+    sb.init().unwrap();
 
     let mut alarm0 = timer.alarm_0().unwrap();
     alarm0.enable_interrupt();
@@ -124,11 +146,10 @@ pub fn init() {
 
     critical_section::with(|cs| {
         let alarm = DRIVER.alarms.borrow(cs);
-        alarm.timestamp.set(u64::MAX);
+        alarm.timestamp.set(u32::MAX.into());
     });
 
     unsafe {
-        pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
         pac::NVIC::unmask(pac::Interrupt::TIMER_IRQ_0);
     }
 
@@ -148,17 +169,19 @@ pub fn init() {
     slint::platform::set_platform(Box::new(PicoBackend {
         window: Default::default(),
         buffer_provider: buffer_provider.into(),
-        timer
+        timer,
+        south_bridge: sb.into(),
     }))
     .expect("backend already initialized");
 
     debug!("finished initializing screen")
 }
 
-struct PicoBackend<DrawBuffer> {
+struct PicoBackend<DrawBuffer, I2C: I2c> {
     window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow>>>,
     buffer_provider: RefCell<DrawBuffer>,
     timer: Timer,
+    south_bridge: RefCell<SouthBridge<I2C>>,
 }
 
 impl<
@@ -168,9 +191,11 @@ impl<
     CH: SingleChannel,
     DC: OutputPin<Error = Infallible>,
     CS_: OutputPin<Error = Infallible>,
+    SDA: AnyPin,
+    SCL: AnyPin,
 > slint::platform::Platform
 for PicoBackend<
-    DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>,
+    DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>, I2C<I2C1, (SDA, SCL)>
 >
 {
     fn create_window_adapter(
@@ -186,6 +211,10 @@ for PicoBackend<
 
         self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE);
 
+
+        let fw = self.south_bridge.borrow_mut().read_firmware_version().unwrap();
+        debug!("firmware id: {}", fw);
+
         loop {
             slint::platform::update_timers_and_animations();
 
@@ -196,8 +225,23 @@ for PicoBackend<
                     renderer.render_by_line(&mut *buffer_provider);
                     buffer_provider.flush_frame();
                 });
-                debug!("render time: {:?}", (self.timer.get_counter() - start).ticks());
+                //debug!("render time: {:?}", (self.timer.get_counter() - start).ticks());
 
+                loop {
+                    let key = self.south_bridge.borrow_mut().read_keyboard_key().unwrap();
+                    match key.key_state {
+                        KeyboardState::Idle => {
+                            break
+                        }
+                        KeyboardState::Pressed => {
+                            /*window.dispatch_event(WindowEvent::KeyPressed {
+                                text: keyFromU8(key.key_code).into(),
+                            })*/
+                        }
+                        KeyboardState::Hold => {}
+                        KeyboardState::Released => {}
+                    }
+                }
 
                 if window.has_active_animations() {
                     continue;
@@ -205,7 +249,7 @@ for PicoBackend<
             }
 
             let sleep_duration = match slint::platform::duration_until_next_timer_update() {
-                None => None,
+                None => Some(fugit::MicrosDurationU32::millis(200)),
                 Some(d) => {
                     let micros = d.as_micros() as u32;
                     if micros < 10 {
@@ -216,6 +260,8 @@ for PicoBackend<
                     }
                 }
             };
+
+            //debug!("sleep_duration: {}", sleep_duration.map(|d| d.to_micros()).unwrap_or(0));
 
             critical_section::with(|cs| {
                 if let Some(duration) = sleep_duration {
@@ -398,16 +444,15 @@ impl TimerDriver {
 
         let now = self.now();
         if timestamp <= now {
+            alarm.timestamp.set(4294967295);
             false
         } else {
-            ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule_at(hal::timer::Instant::from_ticks(timestamp)).unwrap();
-            alarm.timestamp.set(u64::MAX);
+            ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule_at(hal::timer::Instant::from_ticks((timestamp as u32) as u64)).unwrap();
             true
         }
     }
 
     fn check_alarm(&self) {
-        let n = 0;
         critical_section::with(|cs| {
             // clear the irq
             ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().clear_interrupt();
@@ -417,7 +462,7 @@ impl TimerDriver {
             if timestamp <= self.now() {
                 self.trigger_alarm(cs)
             } else {
-                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule_at(hal::timer::Instant::from_ticks(timestamp)).unwrap();
+                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule_at(hal::timer::Instant::from_ticks((timestamp as u32) as u64)).unwrap();
             }
         });
     }

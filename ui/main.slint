@@ -3,9 +3,11 @@ import { ProgressIndicator } from "std-widgets.slint";
 
 export { Globals }
 
+
 export component MainWindow inherits Window {
     width: 320px;
     height: 320px;
+    background: #ff0000;
 
     HorizontalLayout {
         alignment: center;
@@ -28,11 +30,11 @@ export component MainWindow inherits Window {
                 ]
             }
 
-                ProgressIndicator {
-                    width: 100px;
-                    height: 20px;
-                    progress: Globals.progress;
-                }
+            ProgressIndicator {
+                width: 100px;
+                height: 20px;
+                progress: Globals.progress;
+            }
 
             HorizontalLayout {
                 Text {
@@ -69,14 +71,13 @@ export component MainWindow inherits Window {
 }
 
 export component SplashWindow inherits Window {
-    width: 320px;
-    height: 320px;
-    background: #ffffff;
+    width: 300px;
+    height: 300px;
+    background: #eeeeee;
 
     VerticalLayout {
         alignment: center;
         spacing: 20px;
-
 
         Text {
             text: "Rusty Calc";
@@ -109,6 +110,440 @@ export component SplashWindow inherits Window {
                 source: @image-url("images/slint.svg");
                 width: 40px;
                 height: 40px;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+
+            Text {
+                text: "File";
+                font-size: Theme.font-size-small;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Edit";
+                font-size: Theme.font-size-small;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "View";
+                font-size: Theme.font-size-small;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Settings";
+                font-size: Theme.font-size-small;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Help";
+                font-size: Theme.font-size-small;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
+
+export component LauncherWindow inherits Window {
+    width: 320px;
+    height: 320px;
+    background: #eeeeee;
+
+    VerticalLayout {
+        Rectangle {
+            background: #dddddd;
+            height: 20px;
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    padding-left: 5px;
+                    padding-right: 5px;
+                    Text {
+                        text: "10:45 AM";
+                        width: 100px;
+                    }
+
+                    Text {
+                        text: "APPS";
+                        horizontal-alignment: center;
+                    }
+
+                    HorizontalLayout {
+                        width: 100px;
+                        alignment: end;
+                        spacing: 5px;
+
+                        Image {
+                            source: @image-url("images/sound.svg");
+                            image-fit: ImageFit.preserve;
+                        }
+
+                        Image {
+                            source: @image-url("images/bluetooth.svg");
+                            image-fit: ImageFit.preserve;
+                        }
+
+                        Image {
+                            source: @image-url("images/wifi.svg");
+                            image-fit: ImageFit.preserve;
+                        }
+
+                        Image {
+                            source: @image-url("images/battery_full.svg");
+                            image-fit: ImageFit.preserve;
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                border-width: 2px;
+                border-color: #2F88FF;
+                border-radius: 5px;
+                Image {
+                    source: @image-url("images/browser.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Browser";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/calculator.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Calculator";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/clock.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Clock";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/contacts.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Contacts";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/files.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Files";
+                    y: 44px;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/games.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Games";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/mail.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Mail";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/messages.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Messages";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/maps.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Maps";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/music.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Music";
+                    y: 44px;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/news.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "News";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/notebook.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Notebook";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/settings.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Settings";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/spreadsheet.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Spreadsheet";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/terminal.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Terminal";
+                    y: 44px;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/translate.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Translate";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/weather.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Weather";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/info.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Info";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                width: 64px;
+                height: 64px;
+                Image {
+                    source: @image-url("images/photos.svg");
+                    y: 5px;
+                }
+
+                Text {
+                    text: "Photos";
+                    y: 44px;
+                }
+            }
+
+            Rectangle {
+                //placeholder
+                width: 64px;
+                height: 64px;
+            }
+        }
+
+        Text {
+            text: "1/2";
+            font-size: Theme.font-size-small;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            background: #dddddd;
+
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+
+                    Text {
+                        text: "Edit (F1)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Sort (F2)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "View (F3)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Opt4 (F4)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Help (F5)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+                }
             }
         }
     }

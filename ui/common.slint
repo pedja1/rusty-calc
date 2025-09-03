@@ -1,6 +1,12 @@
 export global Globals {
-    in property <bool> hardware-user-btn-pressed;
-    in property <int> progress;
+    in property <bool> wifi-connected;
+    in property <bool> bluetooth-enabled;
+    in property <bool> sound-enabled;
+    in property <bool> battery-charging;
+    in property <int> battery-level;
+    in property <string> current-app-name;
+    in property <string> current-time;
+    in property <[string]> list-of-strings;
     callback toggle-btn(bool);
 }
 
@@ -20,6 +26,55 @@ export global Theme {
     out property <length> font-size-medium: 16px;
     out property <length> page-width: 320px;
     out property <length> page-height: 320px;
+}
+
+export component StatusBar {
+    Rectangle {
+                background: #dddddd;
+                height: 20px;
+                VerticalLayout {
+                    alignment: center;
+                    HorizontalLayout {
+                        padding-left: 5px;
+                        padding-right: 5px;
+                        Text {
+                            text: Globals.current-time;
+                            width: 100px;
+                        }
+
+                        Text {
+                            text: "APPS";
+                            horizontal-alignment: center;
+                        }
+
+                        HorizontalLayout {
+                            width: 100px;
+                            alignment: end;
+                            spacing: 5px;
+
+                            Image {
+                                source: @image-url("images/sound.svg");
+                                image-fit: ImageFit.preserve;
+                            }
+
+                            Image {
+                                source: @image-url("images/bluetooth.svg");
+                                image-fit: ImageFit.preserve;
+                            }
+
+                            Image {
+                                source: @image-url("images/wifi.svg");
+                                image-fit: ImageFit.preserve;
+                            }
+
+                            Image {
+                                source: @image-url("images/battery_full.svg");
+                                image-fit: ImageFit.preserve;
+                            }
+                        }
+                    }
+                }
+            }
 }
 
 export component Button {

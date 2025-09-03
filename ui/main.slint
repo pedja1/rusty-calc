@@ -1,4 +1,4 @@
-import { Globals, Button, Theme, Toggle } from "common.slint";
+import { Globals, Button, Theme, Toggle, StatusBar } from "common.slint";
 import { ProgressIndicator } from "std-widgets.slint";
 
 export { Globals }
@@ -33,7 +33,6 @@ export component MainWindow inherits Window {
             ProgressIndicator {
                 width: 100px;
                 height: 20px;
-                progress: Globals.progress;
             }
 
             HorizontalLayout {
@@ -62,7 +61,6 @@ export component MainWindow inherits Window {
                 Rectangle {
                     width: 100px;
                     height: 100px;
-                    background: Globals.hardware-user-btn-pressed ? blue : lightgray;
                     border-radius: 100px;
                 }
             }
@@ -155,343 +153,64 @@ export component LauncherWindow inherits Window {
     height: 320px;
     background: #eeeeee;
 
+    private property <[{name: string, icon: image}]> apps: [
+        { name: "Browser", icon: @image-url("images/browser.svg") },
+        { name: "Calculator", icon: @image-url("images/calculator.svg") },
+        { name: "Clock", icon: @image-url("images/clock.svg") },
+        { name: "Contacts", icon: @image-url("images/contacts.svg") },
+        { name: "Files", icon: @image-url("images/files.svg") },
+        { name: "Games", icon: @image-url("images/games.svg") },
+        { name: "Info", icon: @image-url("images/info.svg") },
+        { name: "Mail", icon: @image-url("images/mail.svg") },
+        { name: "Messages", icon: @image-url("images/messages.svg") },
+        { name: "Maps", icon: @image-url("images/maps.svg") },
+        { name: "Music", icon: @image-url("images/music.svg") },
+        { name: "News", icon: @image-url("images/news.svg") },
+        { name: "Notebook", icon: @image-url("images/notebook.svg") },
+        { name: "Photos", icon: @image-url("images/photos.svg") },
+        { name: "Settings", icon: @image-url("images/settings.svg") },
+        { name: "Sheets", icon: @image-url("images/spreadsheet.svg") },
+        { name: "Terminal", icon: @image-url("images/terminal.svg") },
+        { name: "Translate", icon: @image-url("images/translate.svg") },
+        { name: "Weather", icon: @image-url("images/weather.svg") },
+    ];
+    in property <int> selected: 6;
+
+    private property <int> row-count: 4;
+    private property <int> column-count: 5;
+    private property <length> app-size: 64px;
+    private property <length> app-spacing: 0px;
+
     VerticalLayout {
+
+        StatusBar { }
+
         Rectangle {
-            background: #dddddd;
-            height: 20px;
-            VerticalLayout {
-                alignment: center;
-                HorizontalLayout {
-                    padding-left: 5px;
-                    padding-right: 5px;
-                    Text {
-                        text: "10:45 AM";
-                        width: 100px;
-                    }
 
-                    Text {
-                        text: "APPS";
-                        horizontal-alignment: center;
-                    }
-
-                    HorizontalLayout {
-                        width: 100px;
-                        alignment: end;
-                        spacing: 5px;
-
-                        Image {
-                            source: @image-url("images/sound.svg");
-                            image-fit: ImageFit.preserve;
-                        }
-
-                        Image {
-                            source: @image-url("images/bluetooth.svg");
-                            image-fit: ImageFit.preserve;
-                        }
-
-                        Image {
-                            source: @image-url("images/wifi.svg");
-                            image-fit: ImageFit.preserve;
-                        }
-
-                        Image {
-                            source: @image-url("images/battery_full.svg");
-                            image-fit: ImageFit.preserve;
-                        }
-                    }
-                }
-            }
-        }
-
-        HorizontalLayout {
-            alignment: center;
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                border-width: 2px;
+            width: (root.column-count * root.app-size) + ((root.column-count + 1) * root.app-spacing);
+            height: (root.row-count * root.app-size) + ((root.row-count + 1) * root.app-spacing);
+            for app[i] in root.apps: Rectangle {
+                x: root.app-spacing + mod(i, root.column-count) * (root.app-size + root.app-spacing);
+                y: root.app-spacing + floor(i / (root.row-count + 1)) * (root.app-size + root.app-spacing);
+                width: root.app-size;
+                height: root.app-size;
+                border-width: selected == i ? 2px : 0px;
                 border-color: #2F88FF;
                 border-radius: 5px;
                 Image {
-                    source: @image-url("images/browser.svg");
+                    source: app.icon;
                     y: 5px;
                 }
 
                 Text {
-                    text: "Browser";
+                    text: app.name;
                     y: 44px;
                 }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/calculator.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Calculator";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/clock.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Clock";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/contacts.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Contacts";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/files.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Files";
-                    y: 44px;
-                }
-            }
-        }
-
-        HorizontalLayout {
-            alignment: center;
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/games.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Games";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/mail.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Mail";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/messages.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Messages";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/maps.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Maps";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/music.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Music";
-                    y: 44px;
-                }
-            }
-        }
-
-        HorizontalLayout {
-            alignment: center;
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/news.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "News";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/notebook.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Notebook";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/settings.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Settings";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/spreadsheet.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Spreadsheet";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/terminal.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Terminal";
-                    y: 44px;
-                }
-            }
-        }
-
-        HorizontalLayout {
-            alignment: center;
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/translate.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Translate";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/weather.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Weather";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/info.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Info";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                width: 64px;
-                height: 64px;
-                Image {
-                    source: @image-url("images/photos.svg");
-                    y: 5px;
-                }
-
-                Text {
-                    text: "Photos";
-                    y: 44px;
-                }
-            }
-
-            Rectangle {
-                //placeholder
-                width: 64px;
-                height: 64px;
             }
         }
 
         Text {
-            text: "1/2";
+            text: "1/1";
             font-size: Theme.font-size-small;
             horizontal-alignment: center;
             vertical-alignment: center;

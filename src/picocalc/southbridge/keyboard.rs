@@ -14,78 +14,82 @@ use rp_pico::pac::I2C1;
 use slint::platform::Key;
 
 // Key constants
-pub const KEY_BACKSPACE: u8 = 0x08;
-pub const KEY_TAB: u8 = 0x09;
-pub const KEY_ENTER: u8 = 0x0A;
-pub const KEY_RETURN: u8 = 0x0D;
-pub const KEY_SPACE: u8 = 0x20;
+const KEY_BACKSPACE: u8 = 0x08;
+const KEY_TAB: u8 = 0x09;
+const KEY_ENTER: u8 = 0x0A;
+const KEY_RETURN: u8 = 0x0D;
+const KEY_SPACE: u8 = 0x20;
 
-pub const KEY_ESC: u8 = 0xB1;
-pub const KEY_UP: u8 = 0xB5;
-pub const KEY_DOWN: u8 = 0xB6;
-pub const KEY_LEFT: u8 = 0xB4;
-pub const KEY_RIGHT: u8 = 0xB7;
+const KEY_ESC: u8 = 0xB1;
+const KEY_UP: u8 = 0xB5;
+const KEY_DOWN: u8 = 0xB6;
+const KEY_LEFT: u8 = 0xB4;
+const KEY_RIGHT: u8 = 0xB7;
 
-pub const KEY_BREAK: u8 = 0xD0;
-pub const KEY_INSERT: u8 = 0xD1;
-pub const KEY_HOME: u8 = 0xD2;
-pub const KEY_DEL: u8 = 0xD4;
-pub const KEY_END: u8 = 0xD5;
-pub const KEY_PAGE_UP: u8 = 0xD6;
-pub const KEY_PAGE_DOWN: u8 = 0xD7;
+const KEY_BREAK: u8 = 0xD0;
+const KEY_INSERT: u8 = 0xD1;
+const KEY_HOME: u8 = 0xD2;
+const KEY_DEL: u8 = 0xD4;
+const KEY_END: u8 = 0xD5;
+const KEY_PAGE_UP: u8 = 0xD6;
+const KEY_PAGE_DOWN: u8 = 0xD7;
 
-pub const KEY_CAPS_LOCK: u8 = 0xC1;
+const KEY_CAPS_LOCK: u8 = 0xC1;
 
-pub const KEY_F1: u8 = 0x81;
-pub const KEY_F2: u8 = 0x82;
-pub const KEY_F3: u8 = 0x83;
-pub const KEY_F4: u8 = 0x84;
-pub const KEY_F5: u8 = 0x85;
-pub const KEY_F6: u8 = 0x86;
-pub const KEY_F7: u8 = 0x87;
-pub const KEY_F8: u8 = 0x88;
-pub const KEY_F9: u8 = 0x89;
-pub const KEY_F10: u8 = 0x90;
+const KEY_F1: u8 = 0x81;
+const KEY_F2: u8 = 0x82;
+const KEY_F3: u8 = 0x83;
+const KEY_F4: u8 = 0x84;
+const KEY_F5: u8 = 0x85;
+const KEY_F6: u8 = 0x86;
+const KEY_F7: u8 = 0x87;
+const KEY_F8: u8 = 0x88;
+const KEY_F9: u8 = 0x89;
+const KEY_F10: u8 = 0x90;
 
 pub const KEY_POWER: u8 = 0x91;
 
-const KEYBOARD_MODIFIER_ALT: u8 = 0xA1;
-const KEYBOARD_MODIFIER_SHL: u8 = 0xA2;
-const KEYBOARD_MODIFIER_SHR: u8 = 0xA3;
-const KEYBOARD_MODIFIER_SYM: u8 = 0xA4;
-const KEYBOARD_MODIFIER_CTRL: u8 = 0xA5;
+const KEY_ALT: u8 = 0xA1;
+const KEY_SHL: u8 = 0xA2;
+const KEY_SHR: u8 = 0xA3;
+const KEY_SYM: u8 = 0xA4;
+const KEY_CTRL: u8 = 0xA5;
 
-pub fn slint_key_from_u8(code: u8) -> Key {
+pub fn slint_key_from_u8(code: u8) -> Option<Key> {
     match code {
-        KEY_BACKSPACE => Key::Backspace,
-        KEY_TAB => Key::Tab,
-        KEY_ENTER => Key::Return,
-        KEY_RETURN => Key::Return,
-        KEY_SPACE => Key::Space,
-        KEY_ESC => Key::Escape,
-        KEY_UP => Key::UpArrow,
-        KEY_DOWN => Key::DownArrow,
-        KEY_LEFT => Key::LeftArrow,
-        KEY_RIGHT => Key::RightArrow,
-        KEY_BREAK => Key::Pause,
-        KEY_INSERT => Key::Insert,
-        KEY_HOME => Key::Home,
-        KEY_DEL => Key::Delete,
-        KEY_END => Key::End,
-        KEY_PAGE_UP => Key::PageUp,
-        KEY_PAGE_DOWN => Key::PageDown,
-        KEY_CAPS_LOCK => Key::CapsLock,
-        KEY_F1 => Key::F1,
-        KEY_F2 => Key::F2,
-        KEY_F3 => Key::F3,
-        KEY_F4 => Key::F4,
-        KEY_F5 => Key::F5,
-        KEY_F6 => Key::F6,
-        KEY_F7 => Key::F7,
-        KEY_F8 => Key::F8,
-        KEY_F9 => Key::F9,
-        KEY_F10 => Key::F10,
-        KEY_POWER => Key::Escape, // Map power key to Escape as fallback
-        _ => Key::Escape, // Default fallback for unknown keys
+        KEY_BACKSPACE => Some(Key::Backspace),
+        KEY_TAB => Some(Key::Tab),
+        KEY_ENTER => Some(Key::Return),
+        KEY_RETURN => Some(Key::Return),
+        KEY_SPACE => Some(Key::Space),
+        KEY_ESC => Some(Key::Escape),
+        KEY_UP => Some(Key::UpArrow),
+        KEY_DOWN => Some(Key::DownArrow),
+        KEY_LEFT => Some(Key::LeftArrow),
+        KEY_RIGHT => Some(Key::RightArrow),
+        KEY_BREAK => Some(Key::Pause),
+        KEY_INSERT => Some(Key::Insert),
+        KEY_HOME => Some(Key::Home),
+        KEY_DEL => Some(Key::Delete),
+        KEY_END => Some(Key::End),
+        KEY_PAGE_UP => Some(Key::PageUp),
+        KEY_PAGE_DOWN => Some(Key::PageDown),
+        KEY_CAPS_LOCK => Some(Key::CapsLock),
+        KEY_F1 => Some(Key::F1),
+        KEY_F2 => Some(Key::F2),
+        KEY_F3 => Some(Key::F3),
+        KEY_F4 => Some(Key::F4),
+        KEY_F5 => Some(Key::F5),
+        KEY_F6 => Some(Key::F6),
+        KEY_F7 => Some(Key::F7),
+        KEY_F8 => Some(Key::F8),
+        KEY_F9 => Some(Key::F9),
+        KEY_F10 => Some(Key::F10),
+        KEY_SHL => Some(Key::Shift),
+        KEY_SHR => Some(Key::ShiftR),
+        KEY_CTRL => Some(Key::Control),
+        KEY_ALT => Some(Key::Alt),
+        // KEY_POWER => Some(Key::Power), // not defined in slint
+        _ => None,
     }
 }

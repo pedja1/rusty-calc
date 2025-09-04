@@ -4,75 +4,77 @@
 extern crate alloc;
 
 use defmt::{debug, unwrap};
-use embassy_executor::Executor;
+use embassy_executor::{Executor, Spawner};
 use embassy_time::{Instant, Timer};
 use rp_pico::{entry, hal, pac};
 use rp_pico::hal::multicore::{Multicore, Stack};
 //use defmt::{debug, info};
 //use embassy_executor::Spawner;
-use slint::{run_event_loop_until_quit, ComponentHandle};
+use slint::{run_event_loop_until_quit, ComponentHandle, PlatformError};
 use slint_generated::{MainWindow, SplashWindow, LauncherWindow};
 use static_cell::StaticCell;
+//use rusty_calc::controller::Controller;
 use rusty_calc::picocalc::pico_backend;
 
-static mut CORE1_STACK: Stack<4096> = Stack::new();
-static EXECUTOR0: StaticCell<Executor> = StaticCell::new();
-static EXECUTOR1: StaticCell<Executor> = StaticCell::new();
 
 #[entry]
-#[allow(static_mut_refs)]
 fn main() -> ! {
-    // Initialize the embassy-based display and platform
-    pico_backend::init();
 
-    // steal here because already used in pico_backend::init()
-    let mut pac = unsafe { pac::Peripherals::steal() };
+    pico_backend::init(core0_run, core1_run);
 
-    let _core = pac::CorePeripherals::take().unwrap();
+    panic!("The main function should not return");
+}
 
-    let mut sio = hal::sio::Sio::new(pac.SIO);
-
-    let mut mc = Multicore::new(&mut pac.PSM, &mut pac.PPB, &mut sio.fifo);
-    let cores = mc.cores();
-    let core1 = &mut cores[1];
-
-    core1.spawn(unsafe { &mut CORE1_STACK.mem }, move || {
-        let executor1 = EXECUTOR1.init(Executor::new());
-        executor1.run(|spawner| spawner.spawn(core1_main()).unwrap());
-    }).unwrap();
-
-    let executor0 = EXECUTOR0.init(Executor::new());
-    executor0.run(|spawner| spawner.spawn(core0_main()).unwrap());
-
+fn core0_run(spawner: Spawner) {
+    spawner.spawn(ui_task()).unwrap();
+    spawner.spawn(event_loop_task()).unwrap();
+}
+fn core1_run(spawner: Spawner) {
+    spawner.spawn(core1_task()).unwrap()
 }
 
 #[embassy_executor::task]
-async fn core0_main() {
+async fn event_loop_task() {
 
-    //info!("Starting embassy-based Slint application");
-
-    debug!("Ticks: {}", Instant::now().as_millis());
-    Timer::after_millis(1000).await;
-    debug!("Ticks after: {}", Instant::now().as_millis());
-
-
-    // Create the main window
-    let main_window = LauncherWindow::new().unwrap();
-    main_window.show().expect("unable to show main window");
-    //let splash_window = SplashWindow::new().unwrap();
-    //splash_window.show().expect("unable to show main window");
-    run_event_loop_until_quit().expect("event loop failed");
-
-    // TASK: run the gui render loop
-    //spawner.spawn(update_progress(main_window)).unwrap();
-
-    // The event loop is now handled by the embassy-based platform
+    loop {
+        //debug!("free heap: {}, used heap: {}", pico_backend::free_heap(), pico_backend::used_heap());
+        Timer::after_millis(1000).await;
+    }
     panic!("The event loop should not return");
 }
 
+#[embassy_executor::task]
+async fn ui_task() {
+    debug!("ui _tasl");
+    // Create the main window
+    //let main_window = MainWindow::new().unwrap();
+    let splash_window = SplashWindow::new().unwrap();
+    splash_window.show().unwrap();
+
+    Timer::after_millis(2000).await;
+    debug!("hiding splash");
+    splash_window.hide().unwrap();
+
+    let launcher_window = LauncherWindow::new().unwrap();
+    launcher_window.show().unwrap();
+
+    Timer::after_millis(2000).await;
+    debug!("hiding launcher");
+    launcher_window.hide().unwrap();
+
+    loop {
+        Timer::after_millis(1000).await;
+    }
+
+    //main_window.show().expect("unable to show main window");
+
+    //let mut controller = Controller::new(&main_window, hardware);
+    //controller.run().await;
+}
+
 
 #[embassy_executor::task]
-async fn core1_main() {
+async fn core1_task() {
     loop {
         //debug!("run core1_main loop");
         Timer::after_millis(1000).await;

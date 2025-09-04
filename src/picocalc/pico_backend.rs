@@ -3,6 +3,9 @@
 
 extern crate alloc;
 
+use crate::picocalc::display::st7365p::ST7365P;
+use crate::picocalc::southbridge::keyboard::slint_key_from_u8;
+use crate::picocalc::southbridge::southbridge::{KeyboardState, SouthBridge};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec;
@@ -13,6 +16,7 @@ use cortex_m::delay::Delay;
 use cortex_m::singleton;
 use critical_section::CriticalSection;
 use defmt::debug;
+use embassy_executor::{Executor, Spawner};
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_time_driver::Driver;
@@ -30,16 +34,20 @@ use hal::dma::{DMAExt, SingleChannel, WriteTarget};
 use hal::gpio::{self, Interrupt as GpioInterrupt};
 use hal::timer::{Alarm, Alarm0};
 use pac::interrupt;
-use {defmt_rtt as _, panic_probe as _};
 use renderer::Rgb565Pixel;
-use rp_pico::hal::{self, pac, prelude::*, Timer, I2C};
-use rp_pico::hal::gpio::AnyPin;
-use rp_pico::hal::gpio::bank0::{Gpio6, Gpio7};
+use rp_pico::hal::dma::{CH0, Channel};
+use rp_pico::hal::gpio::bank0::{Gpio6, Gpio7, Gpio10, Gpio11, Gpio12, Gpio13, Gpio14, Gpio15};
+use rp_pico::hal::gpio::{
+    AnyPin, FunctionI2c, FunctionSio, FunctionSpi, Pin, PullDown, PullUp, SioOutput,
+};
 use rp_pico::hal::i2c::Controller;
-use rp_pico::pac::I2C1;
-use slint::platform::{software_renderer as renderer, Key, PointerEventButton, WindowEvent};
-use crate::picocalc::display::st7365p::ST7365P;
-use crate::picocalc::southbridge::southbridge::{KeyboardState, SouthBridge};
+use rp_pico::hal::multicore::{Multicore, Stack};
+use rp_pico::hal::spi::Enabled;
+use rp_pico::hal::{self, I2C, Spi, Timer, pac, prelude::*};
+use rp_pico::pac::{I2C1, SPI1};
+use slint::platform::{Key, PointerEventButton, WindowEvent, software_renderer as renderer};
+use static_cell::StaticCell;
+use {defmt_rtt as _, panic_probe as _};
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -47,21 +55,52 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 #[global_allocator]
 static ALLOCATOR: Heap = Heap::empty();
 
-static ALARM0: Mutex<CriticalSectionRawMutex, RefCell<Option<Alarm0>>> = Mutex::new(RefCell::new(None));
-static TIMER: Mutex<CriticalSectionRawMutex, RefCell<Option<Timer>>> = Mutex::new(RefCell::new(None));
+static ALARM0: Mutex<CriticalSectionRawMutex, RefCell<Option<Alarm0>>> =
+    Mutex::new(RefCell::new(None));
+static TIMER: Mutex<CriticalSectionRawMutex, RefCell<Option<Timer>>> =
+    Mutex::new(RefCell::new(None));
 
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
 const SPI_ST7789VW_MAX_FREQ: Hertz<u32> = Hertz::<u32>::Hz(62_500_000);
 
 const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 320);
 
+static mut CORE1_STACK: Stack<4096> = Stack::new();
+static EXECUTOR0: StaticCell<Executor> = StaticCell::new();
+static EXECUTOR1: StaticCell<Executor> = StaticCell::new();
+
 /// The Pixel type of the backing store
 pub type TargetPixel = Rgb565Pixel;
 
 type PicoDisplay<SPI, DC, RST> = ST7365P<SPI, DC, RST, Timer>;
 
+type PicoDisplayPioTransfer = PioTransfer<
+    Spi<
+        Enabled,
+        SPI1,
+        (
+            Pin<Gpio11, FunctionSpi, PullDown>,
+            Pin<Gpio12, FunctionSpi, PullDown>,
+            Pin<Gpio10, FunctionSpi, PullDown>,
+        ),
+    >,
+    Channel<CH0>,
+>;
+type PicoCalcSouthBridge = SouthBridge<
+    I2C<
+        I2C1,
+        (
+            Pin<Gpio6, FunctionI2c, PullUp>,
+            Pin<Gpio7, FunctionI2c, PullUp>,
+        ),
+    >,
+>;
 
-pub fn init() {
+type PicoDisplayDCPin = Pin<Gpio14, FunctionSio<SioOutput>, PullDown>;
+type PicoDisplayCSPin = Pin<Gpio13, FunctionSio<SioOutput>, PullDown>;
+
+#[allow(static_mut_refs)]
+pub fn init(core0_run: fn(Spawner) -> (), core1_run: fn(Spawner) -> ()) {
     let mut pac = pac::Peripherals::take().unwrap();
 
     let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
@@ -81,8 +120,13 @@ pub fn init() {
 
     let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
 
-    let sio = hal::sio::Sio::new(pac.SIO);
-    let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
+    let mut sio = hal::sio::Sio::new(pac.SIO);
+    let pins = rp_pico::Pins::new(
+        pac.IO_BANK0,
+        pac.PADS_BANK0,
+        sio.gpio_bank0,
+        &mut pac.RESETS,
+    );
 
     let rst = pins.gpio15.into_push_pull_output();
 
@@ -102,8 +146,12 @@ pub fn init() {
     );
 
     // SAFETY: This is not safe :-(  But we need to access the SPI and its control pins for the PIO
-    let (dc_copy, cs_copy) =
-        unsafe { (core::ptr::read(&dc as *const _), core::ptr::read(&cs as *const _)) };
+    let (dc_copy, cs_copy) = unsafe {
+        (
+            core::ptr::read(&dc as *const _),
+            core::ptr::read(&cs as *const _),
+        )
+    };
     let stolen_spi = unsafe { core::ptr::read(&spi as *const _) };
 
     let display_spi = ExclusiveDevice::new_no_delay(spi, cs).unwrap();
@@ -114,7 +162,8 @@ pub fn init() {
         Some(rst),
         false,
         true,
-        DISPLAY_SIZE.height as _, DISPLAY_SIZE.width as _,
+        DISPLAY_SIZE.height as _,
+        DISPLAY_SIZE.width as _,
         timer,
     );
     display.init().unwrap();
@@ -142,9 +191,7 @@ pub fn init() {
     critical_section::with(|cs| {
         ALARM0.borrow(cs).replace(Some(alarm0));
         TIMER.borrow(cs).replace(Some(timer));
-    });
 
-    critical_section::with(|cs| {
         let alarm = DRIVER.alarms.borrow(cs);
         alarm.timestamp.set(u32::MAX.into());
     });
@@ -166,115 +213,159 @@ pub fn init() {
         stolen_pin: (dc_copy, cs_copy),
     };
 
+    let window = renderer::MinimalSoftwareWindow::new(renderer::RepaintBufferType::ReusedBuffer);
+
     slint::platform::set_platform(Box::new(PicoBackend {
-        window: Default::default(),
-        buffer_provider: buffer_provider.into(),
-        timer,
-        south_bridge: sb.into(),
+        window: window.clone(),
     }))
     .expect("backend already initialized");
 
-    debug!("finished initializing screen")
+    let _core = pac::CorePeripherals::take().unwrap();
+
+    let mut mc = Multicore::new(&mut pac.PSM, &mut pac.PPB, &mut sio.fifo);
+    let cores = mc.cores();
+    let core1 = &mut cores[1];
+
+    core1
+        .spawn(unsafe { &mut CORE1_STACK.mem }, move || {
+            let executor1 = EXECUTOR1.init(Executor::new());
+            executor1.run(core1_run);
+        })
+        .unwrap();
+
+    let executor0 = EXECUTOR0.init(Executor::new());
+    executor0.run(|spawner| {
+        spawner
+            .spawn(event_loop_task(window, buffer_provider.into(), sb.into()))
+            .expect("failed to spawn render loop");
+        core0_run(spawner);
+    });
 }
 
-struct PicoBackend<DrawBuffer, I2C: I2c> {
-    window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow>>>,
-    buffer_provider: RefCell<DrawBuffer>,
-    timer: Timer,
-    south_bridge: RefCell<SouthBridge<I2C>>,
+#[embassy_executor::task]
+async fn event_loop_task(
+    window: Rc<renderer::MinimalSoftwareWindow>,
+    buffer_provider: RefCell<
+        DrawBuffer<
+            ST7365P<
+                ExclusiveDevice<
+                    Spi<
+                        Enabled,
+                        SPI1,
+                        (
+                            Pin<Gpio11, FunctionSpi, PullDown>,
+                            Pin<Gpio12, FunctionSpi, PullDown>,
+                            Pin<Gpio10, FunctionSpi, PullDown>,
+                        ),
+                    >,
+                    Pin<Gpio13, FunctionSio<SioOutput>, PullDown>,
+                    NoDelay,
+                >,
+                Pin<Gpio14, FunctionSio<SioOutput>, PullDown>,
+                Pin<Gpio15, FunctionSio<SioOutput>, PullDown>,
+                Timer,
+            >,
+            PicoDisplayPioTransfer,
+            (PicoDisplayDCPin, PicoDisplayCSPin),
+        >,
+    >,
+    south_bridge: RefCell<PicoCalcSouthBridge>,
+) {
+    debug!("run_event_loop");
+
+    window.set_size(DISPLAY_SIZE);
+
+    let fw = south_bridge.borrow_mut().read_firmware_version().unwrap();
+    debug!("firmware id: {}", fw);
+
+    loop {
+        slint::platform::update_timers_and_animations();
+
+        window.draw_if_needed(|renderer| {
+            let mut buffer_provider = buffer_provider.borrow_mut();
+            renderer.render_by_line(&mut *buffer_provider);
+            buffer_provider.flush_frame();
+        });
+        //debug!("render time: {:?}", (self.timer.get_counter() - start).ticks());
+
+        loop {
+            let key = south_bridge.borrow_mut().read_keyboard_key().unwrap();
+            match key.key_state {
+                KeyboardState::Idle => break,
+                KeyboardState::Pressed => {
+                    //debug!("key pressed: {}", key.key_code as char);
+                    if let Some(key) = slint_key_from_u8(key.key_code) {
+                        window.dispatch_event(WindowEvent::KeyPressed { text: key.into() })
+                    }
+                }
+                KeyboardState::Hold => {}
+                KeyboardState::Released => {
+                    //debug!("key released: {}", key.key_code as char);
+                    if let Some(key) = slint_key_from_u8(key.key_code) {
+                        window.dispatch_event(WindowEvent::KeyReleased { text: key.into() })
+                    }
+                }
+            }
+        }
+
+        if window.has_active_animations() {
+            continue;
+        }
+
+        let sleep_duration = match slint::platform::duration_until_next_timer_update() {
+            None => Some(fugit::MicrosDurationU32::millis(50)),
+            Some(d) => {
+                let micros = d.as_micros() as u32;
+                if micros < 10 {
+                    // Cannot wait for less than 10µs, or `schedule()` panics
+                    continue;
+                } else {
+                    Some(fugit::MicrosDurationU32::micros(micros))
+                }
+            }
+        };
+
+        //debug!("sleep_duration: {}", sleep_duration.map(|d| d.to_micros()).unwrap_or(0));
+
+        /*critical_section::with(|cs| {
+            if let Some(duration) = sleep_duration {
+                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
+            }
+        });
+        cortex_m::asm::wfe();*/
+        if let Some(duration) = sleep_duration {
+            embassy_time::Timer::after_ticks(duration.ticks() as u64).await;
+        }
+    }
 }
 
-impl<
-    SPI: SpiDevice,
-    RST: OutputPin<Error = Infallible>,
-    TO: WriteTarget<TransmittedWord = u8> + embedded_hal_nb::spi::FullDuplex,
-    CH: SingleChannel,
-    DC: OutputPin<Error = Infallible>,
-    CS_: OutputPin<Error = Infallible>,
-    SDA: AnyPin,
-    SCL: AnyPin,
-> slint::platform::Platform
-for PicoBackend<
-    DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>, I2C<I2C1, (SDA, SCL)>
->
-{
+pub fn used_heap() -> usize {
+    ALLOCATOR.used()
+}
+
+pub fn free_heap() -> usize {
+    ALLOCATOR.free()
+}
+
+struct PicoBackend {
+    window: Rc<renderer::MinimalSoftwareWindow>,
+}
+
+impl slint::platform::Platform for PicoBackend {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        let window =
-            renderer::MinimalSoftwareWindow::new(renderer::RepaintBufferType::ReusedBuffer);
-        self.window.replace(Some(window.clone()));
-        Ok(window)
-    }
-
-    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-
-        self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE);
-
-
-        let fw = self.south_bridge.borrow_mut().read_firmware_version().unwrap();
-        debug!("firmware id: {}", fw);
-
-        loop {
-            slint::platform::update_timers_and_animations();
-
-            if let Some(window) = self.window.borrow().clone() {
-                let start = self.timer.get_counter();
-                window.draw_if_needed(|renderer| {
-                    let mut buffer_provider = self.buffer_provider.borrow_mut();
-                    renderer.render_by_line(&mut *buffer_provider);
-                    buffer_provider.flush_frame();
-                });
-                //debug!("render time: {:?}", (self.timer.get_counter() - start).ticks());
-
-                loop {
-                    let key = self.south_bridge.borrow_mut().read_keyboard_key().unwrap();
-                    match key.key_state {
-                        KeyboardState::Idle => {
-                            break
-                        }
-                        KeyboardState::Pressed => {
-                            /*window.dispatch_event(WindowEvent::KeyPressed {
-                                text: keyFromU8(key.key_code).into(),
-                            })*/
-                        }
-                        KeyboardState::Hold => {}
-                        KeyboardState::Released => {}
-                    }
-                }
-
-                if window.has_active_animations() {
-                    continue;
-                }
-            }
-
-            let sleep_duration = match slint::platform::duration_until_next_timer_update() {
-                None => Some(fugit::MicrosDurationU32::millis(200)),
-                Some(d) => {
-                    let micros = d.as_micros() as u32;
-                    if micros < 10 {
-                        // Cannot wait for less than 10µs, or `schedule()` panics
-                        continue;
-                    } else {
-                        Some(fugit::MicrosDurationU32::micros(micros))
-                    }
-                }
-            };
-
-            //debug!("sleep_duration: {}", sleep_duration.map(|d| d.to_micros()).unwrap_or(0));
-
-            critical_section::with(|cs| {
-                if let Some(duration) = sleep_duration {
-                    ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
-                }
-            });
-            cortex_m::asm::wfe();
-        }
+        Ok(self.window.clone())
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
         let counter = critical_section::with(|cs| {
-            TIMER.borrow(cs).borrow().as_ref().map(|t| t.get_counter().ticks()).unwrap_or_default()
+            TIMER
+                .borrow(cs)
+                .borrow()
+                .as_ref()
+                .map(|t| t.get_counter().ticks())
+                .unwrap_or_default()
         });
         core::time::Duration::from_micros(counter)
     }
@@ -317,7 +408,7 @@ impl<
     DC: OutputPin<Error = Infallible>,
     CS_: OutputPin<Error = Infallible>,
 > renderer::LineBufferProvider
-for &mut DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>
+    for &mut DrawBuffer<PicoDisplay<SPI, DC, RST>, PioTransfer<TO, CH>, (DC, CS_)>
 {
     type TargetPixel = TargetPixel;
 
@@ -397,7 +488,10 @@ unsafe impl embedded_dma::ReadBuffer for PartialReadBuffer {
 
     unsafe fn read_buffer(&self) -> (*const <Self as embedded_dma::ReadBuffer>::Word, usize) {
         let act_slice = &self.0[self.1.clone()];
-        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565Pixel>())
+        (
+            act_slice.as_ptr() as *const u8,
+            act_slice.len() * core::mem::size_of::<Rgb565Pixel>(),
+        )
     }
 }
 
@@ -419,7 +513,13 @@ struct TimerDriver {
 impl Driver for TimerDriver {
     fn now(&self) -> u64 {
         critical_section::with(|cs| {
-            TIMER.borrow(cs).borrow().as_ref().map(|t| t.get_counter().ticks()).unwrap_or_default()
+            //debug!("now()");
+            TIMER
+                .borrow(cs)
+                .borrow()
+                .as_ref()
+                .map(|t| t.get_counter().ticks())
+                .unwrap_or_default()
         })
     }
 
@@ -447,7 +547,13 @@ impl TimerDriver {
             alarm.timestamp.set(4294967295);
             false
         } else {
-            ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule_at(hal::timer::Instant::from_ticks((timestamp as u32) as u64)).unwrap();
+            ALARM0
+                .borrow(cs)
+                .borrow_mut()
+                .as_mut()
+                .unwrap()
+                .schedule_at(hal::timer::Instant::from_ticks((timestamp as u32) as u64))
+                .unwrap();
             true
         }
     }
@@ -455,22 +561,41 @@ impl TimerDriver {
     fn check_alarm(&self) {
         critical_section::with(|cs| {
             // clear the irq
-            ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().clear_interrupt();
+            ALARM0
+                .borrow(cs)
+                .borrow_mut()
+                .as_mut()
+                .unwrap()
+                .clear_interrupt();
 
             let alarm = &self.alarms.borrow(cs);
             let timestamp = alarm.timestamp.get();
             if timestamp <= self.now() {
                 self.trigger_alarm(cs)
             } else {
-                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule_at(hal::timer::Instant::from_ticks((timestamp as u32) as u64)).unwrap();
+                ALARM0
+                    .borrow(cs)
+                    .borrow_mut()
+                    .as_mut()
+                    .unwrap()
+                    .schedule_at(hal::timer::Instant::from_ticks((timestamp as u32) as u64))
+                    .unwrap();
             }
         });
     }
 
     fn trigger_alarm(&self, cs: CriticalSection) {
-        let mut next = self.queue.borrow(cs).borrow_mut().next_expiration(self.now());
+        let mut next = self
+            .queue
+            .borrow(cs)
+            .borrow_mut()
+            .next_expiration(self.now());
         while !self.set_alarm(cs, next) {
-            next = self.queue.borrow(cs).borrow_mut().next_expiration(self.now());
+            next = self
+                .queue
+                .borrow(cs)
+                .borrow_mut()
+                .next_expiration(self.now());
         }
     }
 }
@@ -490,7 +615,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     let mut pac = unsafe { pac::Peripherals::steal() };
 
     let sio = hal::sio::Sio::new(pac.SIO);
-    let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
+    let pins = rp_pico::Pins::new(
+        pac.IO_BANK0,
+        pac.PADS_BANK0,
+        sio.gpio_bank0,
+        &mut pac.RESETS,
+    );
     let mut led = pins.led.into_push_pull_output();
     led.set_high().unwrap();
 
@@ -505,8 +635,8 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         &mut pac.RESETS,
         &mut watchdog,
     )
-        .ok()
-        .unwrap();
+    .ok()
+    .unwrap();
 
     let spi_sclk = pins.gpio10.into_function::<gpio::FunctionSpi>();
     let spi_mosi = pins.gpio11.into_function::<gpio::FunctionSpi>();
@@ -528,7 +658,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     let cs = pins.gpio9.into_push_pull_output();
     bl.set_high().unwrap();
     let spi = singleton!(:SpiRefCell = SpiRefCell::new((spi, 0.Hz()))).unwrap();
-    let display_spi = SharedSpiWithFreq { refcell: spi, cs, freq: SPI_ST7789VW_MAX_FREQ };
+    let display_spi = SharedSpiWithFreq {
+        refcell: spi,
+        cs,
+        freq: SPI_ST7789VW_MAX_FREQ,
+    };
     let mut buffer = [0_u8; 512];
     let di = mipidsi::interface::SpiInterface::new(display_spi, dc, &mut buffer);
     let mut display = mipidsi::Builder::new(mipidsi::models::ST7796, di)
@@ -541,13 +675,15 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     use core::fmt::Write;
     use embedded_graphics::{
-        mono_font::{ascii::FONT_6X10, MonoTextStyle},
+        mono_font::{MonoTextStyle, ascii::FONT_6X10},
         pixelcolor::Rgb565,
         prelude::*,
         text::Text,
     };
 
-    display.fill_solid(&display.bounding_box(), Rgb565::new(0x00, 0x25, 0xff)).unwrap();
+    display
+        .fill_solid(&display.bounding_box(), Rgb565::new(0x00, 0x25, 0xff))
+        .unwrap();
 
     struct WriteToScreen<'a, D> {
         x: i32,
@@ -581,9 +717,13 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                     .unwrap_or(s.len());
                 let (line, rest) = s.split_at(end_of_line);
                 let sz = self.style.font.character_size;
-                Text::new(line, Point::new(x * sz.width as i32, y * sz.height as i32), self.style)
-                    .draw(self.display)
-                    .map_err(|_| core::fmt::Error)?;
+                Text::new(
+                    line,
+                    Point::new(x * sz.width as i32, y * sz.height as i32),
+                    self.style,
+                )
+                .draw(self.display)
+                .map_err(|_| core::fmt::Error)?;
                 s = rest.strip_prefix('\n').unwrap_or(rest);
             }
             Ok(())

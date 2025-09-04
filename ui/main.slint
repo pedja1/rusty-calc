@@ -69,8 +69,8 @@ export component MainWindow inherits Window {
 }
 
 export component SplashWindow inherits Window {
-    width: 300px;
-    height: 300px;
+    width: 320px;
+    height: 320px;
     background: #eeeeee;
 
     VerticalLayout {
@@ -110,41 +110,6 @@ export component SplashWindow inherits Window {
                 height: 40px;
             }
         }
-
-        HorizontalLayout {
-            alignment: center;
-            spacing: 10px;
-
-            Text {
-                text: "File";
-                font-size: Theme.font-size-small;
-                horizontal-alignment: center;
-            }
-
-            Text {
-                text: "Edit";
-                font-size: Theme.font-size-small;
-                horizontal-alignment: center;
-            }
-
-            Text {
-                text: "View";
-                font-size: Theme.font-size-small;
-                horizontal-alignment: center;
-            }
-
-            Text {
-                text: "Settings";
-                font-size: Theme.font-size-small;
-                horizontal-alignment: center;
-            }
-
-            Text {
-                text: "Help";
-                font-size: Theme.font-size-small;
-                horizontal-alignment: center;
-            }
-        }
     }
 }
 
@@ -174,12 +139,56 @@ export component LauncherWindow inherits Window {
         { name: "Translate", icon: @image-url("images/translate.svg") },
         { name: "Weather", icon: @image-url("images/weather.svg") },
     ];
-    in property <int> selected: 6;
+    private property <int> selected: 0;
+
+    private property <bool> shift-pressed: false;
 
     private property <int> row-count: 4;
     private property <int> column-count: 5;
     private property <length> app-size: 64px;
     private property <length> app-spacing: 0px;
+
+    forward-focus: my-key-handler;
+    my-key-handler := FocusScope {
+        key-pressed(event) => {
+            /*if (event.modifiers.control) {
+                debug("control was pressed during this event");
+            }
+            if (event.text == Key.Escape) {
+                debug("Esc key was pressed")
+            }*/
+            shift-pressed = event.modifiers.shift;
+            if (event.text == Key.LeftArrow) {
+                if (selected > 0) {
+                    selected -= 1;
+                }
+            }
+            if (event.text == Key.RightArrow) {
+                if (selected < apps.length - 1) {
+                    selected += 1;
+                }
+            }
+            if (event.text == Key.UpArrow) {
+                if (selected - column-count >= 0) {
+                    selected -= column-count;
+                }
+            }
+            if (event.text == Key.DownArrow) {
+                if (selected + column-count < apps.length) {
+                    selected += column-count;
+                }
+            }
+
+            accept
+        }
+
+        key-released(event) => {
+            if ((event.text == Key.Shift || event.text == Key.ShiftR)) {
+                shift-pressed = false;
+            }
+            accept
+        }
+    }
 
     VerticalLayout {
 
@@ -221,6 +230,7 @@ export component LauncherWindow inherits Window {
 
             VerticalLayout {
                 alignment: center;
+                visible: !shift-pressed;
                 HorizontalLayout {
 
                     Text {
@@ -257,6 +267,53 @@ export component LauncherWindow inherits Window {
 
                     Text {
                         text: "Help (F5)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                visible: shift-pressed;
+                HorizontalLayout {
+
+                    Text {
+                        text: "Opt6 (F6)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Opt7 (F7)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Opt8 (F8)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Opt9 (F9)";
+                        font-size: Theme.font-size-small;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 64px;
+                    }
+
+                    Text {
+                        text: "Opt10 (10)";
                         font-size: Theme.font-size-small;
                         horizontal-alignment: center;
                         vertical-alignment: center;

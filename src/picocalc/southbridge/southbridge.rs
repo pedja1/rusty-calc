@@ -10,6 +10,7 @@ enum SbAddress {
     SouthBridge = 0x1f,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum KeyboardState {
     Idle = 0,
     Pressed = 1,
